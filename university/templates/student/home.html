@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Portal do Estudante - Sistema de Gestão Universitária{% endblock %}
+
+{% block header %}
+<div class="bg-light py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="display-4 fw-bold">Bem-vindo, {{ user.first_name }}</h1>
+                <p class="lead text-muted">Portal do Estudante - Acesse suas informações acadêmicas e recursos em um só lugar.</p>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                    {% comment %} <a href="{% url 'grades' %}" class="btn btn-primary btn-lg px-4 me-md-2">Ver Notas</a> {% endcomment %}
+                    {% comment %} <a href="{% url 'schedule' %}" class="btn btn-outline-secondary btn-lg px-4">Meu Horário</a> {% endcomment %}
+                </div>
+            </div>
+            <div class="col-md-6 d-none d-md-block text-end">
+                <img src="{% static 'student-portal.jpg' %}" alt="Portal do Estudante" class="img-fluid" width="200">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <!-- Student Dashboard -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>Meu Painel</h5>
+                <span class="badge bg-light text-dark">{{ current_semester }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 text-center h-100">
+                            <i class="fas fa-book-open fa-2x text-primary mb-3"></i>
+                            <h3 class="fs-2">{{ enrolled_courses|default:"0" }}</h3>
+                            <p class="mb-0 text-muted">Disciplinas Matriculadas</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 text-center h-100">
+                            <i class="fas fa-chart-line fa-2x text-primary mb-3"></i>
+                            <h3 class="fs-2">{{ grade_average|default:"0.0" }}</h3>
+                            <p class="mb-0 text-muted">Média Geral</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 text-center h-100">
+                            <i class="fas fa-graduation-cap fa-2x text-primary mb-3"></i>
+                            <h3 class="fs-2">{{ completed_credits|default:"0" }}/{{ total_credits|default:"0" }}</h3>
+                            <p class="mb-0 text-muted">Créditos Concluídos</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Courses -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Disciplinas em Andamento</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if current_courses %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Código</th>
+                                <th>Disciplina</th>
+                                <th>Professor</th>
+                                <th>Média</th>
+                                <th>Frequência</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for course in current_courses %}
+                            <tr>
+                                <td>{{ course.code }}</td>
+                                <td>{{ course.title }}</td>
+                                <td>{{ course.professor }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if course.grade >= 7 %}
+                                            <div class="badge bg-success me-2">{{ course.grade }}</div>
+                                        {% elif course.grade >= 5 %}
+                                            <div class="badge bg-warning text-dark me-2">{{ course.grade }}</div>
+                                        {% else %}
+                                            <div class="badge bg-danger me-2">{{ course.grade }}</div>
+                                        {% endif %}
+                                        <div class="progress flex-grow-1" style="height: 6px;">
+                                            <div class="progress-bar" role="progressbar" style="width: {{ course.grade|floatformat:0 }}0%;" aria-valuenow="{{ course.grade|floatformat:0 }}0" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if course.attendance >= 75 %}
+                                            <div class="badge bg-success me-2">{{ course.attendance }}%</div>
+                                        {% elif course.attendance >= 70 %}
+                                            <div class="badge bg-warning text-dark me-2">{{ course.attendance }}%</div>
+                                        {% else %}
+                                            <div class="badge bg-danger me-2">{{ course.attendance }}%</div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{% url 'course_detail' course.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></a>
+                                        <a href="{% url 'course_material' course.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-book"></i></a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-4 text-center">
+                    <p class="text-muted mb-0">Você não possui disciplinas em andamento neste semestre.</p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer text-end">
+                {% comment %} <a href="{% url 'all_courses' %}" class="btn btn-sm btn-primary">Ver todas as disciplinas</a> {% endcomment %}
+            </div>
+        </div>
+
+        <!-- Academic Calendar -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Calendário Acadêmico</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% if calendar_events %}
+                        {% for event in calendar_events %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ event.title }}</h6>
+                                <small>
+                                    {% if event.days_left < 0 %}
+                                        <span class="text-muted">Concluído</span>
+                                    {% elif event.days_left == 0 %}
+                                        <span class="badge bg-danger">Hoje</span>
+                                    {% else %}
+                                        <span class="badge bg-info text-dark">Em {{ event.days_left }} dias</span>
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <p class="mb-1">{{ event.description }}</p>
+                            <small class="text-muted">{{ event.start_date|date:"d/m/Y" }} - {{ event.end_date|date:"d/m/Y" }}</small>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item">
+                            <p class="text-muted mb-0 text-center">Não há eventos programados no momento.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-footer text-end">
+                {% comment %} <a href="{% url 'calendar' %}" class="btn btn-sm btn-primary">Ver calendário completo</a> {% endcomment %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <!-- Student Profile Card -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-user-graduate me-2"></i>Meu Perfil</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    {% if user.profile.photo %}
+                        <img src="{{ user.profile.photo.url }}" alt="Foto de perfil" class="rounded-circle img-thumbnail" width="120">
+                    {% else %}
+                        <div class="mx-auto bg-light rounded-circle d-flex align-items-center justify-content-center" style="width:120px;height:120px;">
+                            <i class="fas fa-user-graduate fa-4x text-secondary"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <h5 class="mb-0">{{ user.get_full_name }}</h5>
+                <p class="text-muted">{{ user.profile.student_id }}</p>
+                <p class="mb-2"><i class="fas fa-graduation-cap me-2 text-primary"></i>{{ user.profile.course_name }}</p>
+                <p class="mb-2"><i class="fas fa-building me-2 text-primary"></i>{{ user.profile.department }}</p>
+                <p class="mb-2"><i class="fas fa-calendar me-2 text-primary"></i>{{ user.profile.entry_year }}</p>
+                <hr>
+                <div class="d-grid">
+                    {% comment %} <a href="{% url 'profile' %}" class="btn btn-outline-primary">Editar Perfil</a> {% endcomment %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Announcements -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-bullhorn me-2"></i>Avisos</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% if announcements %}
+                        {% for announcement in announcements %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ announcement.title }}</h6>
+                                <small class="text-muted">{{ announcement.date|date:"d/m/Y" }}</small>
+                            </div>
+                            <p class="mb-1">{{ announcement.content|truncatewords:20 }}</p>
+                            <small><a href="{% url 'announcement_detail' announcement.id %}">Leia mais</a></small>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item">
+                            <p class="text-muted mb-0 text-center">Não há avisos no momento.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-footer text-end">
+                {% comment %} <a href="{% url 'all_announcements' %}" class="btn btn-sm btn-primary">Ver todos os avisos</a> {% endcomment %}
+            </div>
+        </div>
+
+        <!-- Upcoming Assignments -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Próximas Atividades</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% if upcoming_assignments %}
+                        {% for assignment in upcoming_assignments %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ assignment.title }}</h6>
+                                <small>
+                                    {% if assignment.days_left == 0 %}
+                                        <span class="badge bg-danger">Hoje</span>
+                                    {% elif assignment.days_left == 1 %}
+                                        <span class="badge bg-warning text-dark">Amanhã</span>
+                                    {% else %}
+                                        <span class="badge bg-info text-dark">{{ assignment.days_left }} dias</span>
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <p class="mb-1">{{ assignment.course_code }} - {{ assignment.course_name }}</p>
+                            <small>Entrega: {{ assignment.due_date|date:"d/m/Y H:i" }}</small>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item">
+                            <p class="text-muted mb-0 text-center">Não há atividades pendentes.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-footer text-end">
+                {% comment %} <a href="{% url 'all_assignments' %}" class="btn btn-sm btn-primary">Ver todas as atividades</a> {% endcomment %}
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-link me-2"></i>Links Rápidos</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    <a href="{% url 'student:issue-badge' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-book text-primary me-2"></i> Certificados
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {% comment %} <a href="{% url 'enrollment' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"> 
+                        <div>
+                            <i class="fas fa-edit text-primary me-2"></i> Matrícula Online
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    <a href="{% url 'financial' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"> 
+                        <div>
+                            <i class="fas fa-money-bill-wave text-primary me-2"></i> Situação Financeira
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    <a href="{% url 'help_desk' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-headset text-primary me-2"></i> Suporte ao Estudante
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    <a href="{% url 'certificates' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"> 
+                        <div>
+                            <i class="fas fa-certificate text-primary me-2"></i> Certificados
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {% endcomment %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Optional JavaScript for enhancing the student dashboard
+    $(document).ready(function() {
+        // Highlight current page in navigation
+        $(".nav-item .nav-link").each(function() {
+            if (window.location.pathname === $(this).attr("href")) {
+                $(this).addClass("active");
+            }
+        });
+
+        // Toggle notification panel
+        $("#notificationToggle").click(function(e) {
+            e.preventDefault();
+            $("#notificationPanel").toggleClass("d-none");
+        });
+
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,477 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Meu Badge - Sistema de Gestão Universitária{% endblock %}
+
+{% block head %}
+<style>
+    .badge-card {
+        transition: all 0.3s ease;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .badge-card:hover {
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .qrcode-container {
+        padding: 20px;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        max-width: 300px;
+        margin: 0 auto;
+    }
+    
+    .qrcode-img {
+        width: 100%;
+        height: auto;
+    }
+    
+    .achievement-icon {
+        width: 80px;
+        height: 80px;
+        padding: 15px;
+        border-radius: 50%;
+        background-color: var(--primary-color);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px auto;
+    }
+    
+    .verification-badge {
+        position: absolute;
+        bottom: -10px;
+        right: -10px;
+        width: 40px;
+        height: 40px;
+        background-color: #28a745;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        border: 3px solid white;
+    }
+    
+    .expired-badge {
+        background-color: #dc3545;
+    }
+    
+    .share-button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+        color: #555;
+        border: none;
+        transition: all 0.2s ease;
+    }
+    
+    .share-button:hover {
+        background-color: var(--primary-color);
+        color: white;
+    }
+    
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        
+        body {
+            background-color: white !important;
+        }
+        
+        .qrcode-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block header %}
+<div class="bg-light py-4 no-print">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 fw-bold">Meu Badge QR Code</h1>
+                <p class="lead text-muted">Use este QR Code para verificar sua identidade e certificações em atividades acadêmicas.</p>
+            </div>
+            <div class="col-md-4 d-none d-md-flex justify-content-end">
+                <div class="achievement-icon">
+                    <i class="fas fa-qrcode fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mb-5">
+    <div class="col-md-8 col-lg-6">
+        <!-- QR Code Badge Card -->
+        <div class="card shadow-sm qrcode-card">
+            <div class="card-body text-center p-4">
+                <h4 class="card-title mb-4">{{ user.get_full_name }}</h4>
+                <p class="text-muted mb-4">{{ badge_title|default:"Badge de Identificação Acadêmica" }}</p>
+                
+                <div class="position-relative d-inline-block">
+                    <!-- QR Code Container -->
+                    <div class="qrcode-container mb-4">
+                        {% if qrcode_url %}
+                            <img src="{{ qrcode_url }}" alt="Badge QR Code" class="qrcode-img">
+                        {% else %}
+                            <!-- Placeholder when API doesn't return a QR code -->
+                            <img src="{% static 'core/qrcode-placeholder.png' %}" alt="QR Code Placeholder" class="qrcode-img">
+                        {% endif %}
+                        
+                        <!-- Verification Badge -->
+                        <div class="verification-badge {% if is_expired %}expired-badge{% endif %}">
+                            <i class="fas {% if is_expired %}fa-times{% else %}fa-check{% endif %}"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Badge Details -->
+                <div class="mb-4">
+                    <h5>Detalhes do Badge</h5>
+                    <div class="row text-start">
+                        <div class="col-6">
+                            <p class="small text-muted mb-1">ID do Badge</p>
+                            <p class="fw-bold">{{ badge_id|default:"#12345678" }}</p>
+                        </div>
+                        <div class="col-6">
+                            <p class="small text-muted mb-1">Perfil</p>
+                            <p class="fw-bold">{{ user.profile.student_id|default:"Estudante" }}</p>
+                        </div>
+                        <div class="col-6">
+                            <p class="small text-muted mb-1">Emitido em</p>
+                            <p class="fw-bold">{{ issued_date|default:"01/05/2024" }}</p>
+                        </div>
+                        <div class="col-6">
+                            <p class="small text-muted mb-1">Válido até</p>
+                            <p class="fw-bold {% if is_expired %}text-danger{% endif %}">{{ expiry_date|default:"01/05/2025" }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Status Badge -->
+                <div class="mb-4">
+                    <span class="badge bg-{% if is_expired %}danger{% else %}success{% endif %} p-2">
+                        {% if is_expired %}
+                            <i class="fas fa-exclamation-triangle me-1"></i> Expirado
+                        {% else %}
+                            <i class="fas fa-check-circle me-1"></i> Válido
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <!-- Verification Text -->
+                <div class="alert alert-light text-start small mb-4">
+                    <i class="fas fa-info-circle me-2 text-primary"></i>
+                    Este QR code contém informações criptografadas que validam sua identidade e suas certificações. Ao ser escaneado por uma entidade autorizada, a autenticidade pode ser verificada em tempo real.
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="d-flex justify-content-center gap-2 mt-3 no-print">
+                    <button class="btn btn-primary" id="refreshQRCode">
+                        <i class="fas fa-sync-alt me-2"></i> Atualizar QR Code
+                    </button>
+                    <button class="btn btn-outline-primary" id="printQRCode">
+                        <i class="fas fa-print me-2"></i> Imprimir
+                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-share-alt me-2"></i> Compartilhar
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
+                            <li><a class="dropdown-item" href="#" id="downloadQR"><i class="fas fa-download me-2"></i> Baixar QR Code</a></li>
+                            <li><a class="dropdown-item" href="#" id="emailQR"><i class="fas fa-envelope me-2"></i> Enviar por Email</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" id="copyLink"><i class="fas fa-link me-2"></i> Copiar Link</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Usage Instructions -->
+        <div class="card shadow-sm mt-4 no-print">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Como Usar</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3 mb-md-0">
+                        <div class="rounded-circle bg-light p-3 mb-2 mx-auto" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-mobile-alt fa-2x text-primary"></i>
+                        </div>
+                        <h6>1. Mostre o QR Code</h6>
+                        <p class="text-muted small">Apresente o código em seu dispositivo móvel ou versão impressa</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3 mb-md-0">
+                        <div class="rounded-circle bg-light p-3 mb-2 mx-auto" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-qrcode fa-2x text-primary"></i>
+                        </div>
+                        <h6>2. Permita o Escaneamento</h6>
+                        <p class="text-muted small">O verificador irá escanear seu código usando um dispositivo apropriado</p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div class="rounded-circle bg-light p-3 mb-2 mx-auto" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-check-circle fa-2x text-primary"></i>
+                        </div>
+                        <h6>3. Verificação Completa</h6>
+                        <p class="text-muted small">Após a verificação, suas credenciais serão confirmadas</p>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning mt-4 mb-0">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        </div>
+                        <div>
+                            <h6>Importante</h6>
+                            <p class="mb-0">Este QR code é pessoal e intransferível. Não compartilhe com terceiros não autorizados. O código é atualizado periodicamente para sua segurança.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 col-lg-3 no-print">
+        <!-- Badge History -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Histórico</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% if qrcode_history %}
+                        {% for history in qrcode_history %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ history.action }}</h6>
+                                    <small class="text-muted">{{ history.date }}</small>
+                                </div>
+                                <span class="badge bg-{% if history.status == 'success' %}success{% elif history.status == 'warning' %}warning text-dark{% else %}danger{% endif %} rounded-pill">
+                                    <i class="fas fa-{% if history.status == 'success' %}check{% elif history.status == 'warning' %}exclamation{% else %}times{% endif %}"></i>
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">QR Code Gerado</h6>
+                                    <small class="text-muted">{% now "d/m/Y H:i" %}</small>
+                                </div>
+                                <span class="badge bg-success rounded-pill">
+                                    <i class="fas fa-check"></i>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">Badge Emitido</h6>
+                                    <small class="text-muted">{{ issued_date|default:"01/05/2024" }}</small>
+                                </div>
+                                <span class="badge bg-success rounded-pill">
+                                    <i class="fas fa-check"></i>
+                                </span>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Associated Events/Certifications -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-certificate me-2"></i>Certificações</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% if certifications %}
+                        {% for cert in certifications %}
+                        <a href="{% url 'certification_detail' cert.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ cert.title }}</h6>
+                                    <small class="text-muted">{{ cert.issued_date }}</small>
+                                </div>
+                                <i class="fas fa-chevron-right"></i>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">Identificação Acadêmica</h6>
+                                    <small class="text-muted">Acesso ao Campus</small>
+                                </div>
+                                <span class="badge bg-success rounded-pill">Ativo</span>
+                            </div>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">Biblioteca Universitária</h6>
+                                    <small class="text-muted">Acesso e Empréstimos</small>
+                                </div>
+                                <span class="badge bg-success rounded-pill">Ativo</span>
+                            </div>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">Laboratórios</h6>
+                                    <small class="text-muted">Acesso Integrado</small>
+                                </div>
+                                <span class="badge bg-success rounded-pill">Ativo</span>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QR Code Verification Modal -->
+<div class="modal fade" id="qrVerificationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Verificação de QR Code</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-4">
+                    <div class="d-inline-block rounded-circle bg-success p-3 mb-3">
+                        <i class="fas fa-check fa-3x text-white"></i>
+                    </div>
+                    <h4>QR Code Verificado!</h4>
+                    <p class="text-muted">Este QR Code é válido e está associado a:</p>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5>{{ user.get_full_name }}</h5>
+                        <p class="mb-0">ID: {{ user.profile.student_id|default:"XXXX-XXXX" }}</p>
+                        <p class="mb-0">Válido até: {{ expiry_date|default:"01/05/2025" }}</p>
+                    </div>
+                </div>
+                
+                <div class="alert alert-success">
+                    <i class="fas fa-shield-alt me-2"></i> Verificado através do Sistema de Gestão Universitária
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Refresh QR Code
+        $("#refreshQRCode").click(function() {
+            // In a real implementation, this would call your API to regenerate the QR code
+            // For demo purposes, we'll just show a loading state and then simulate success
+            
+            var $button = $(this);
+            var originalText = $button.html();
+            $button.html('<i class="fas fa-spinner fa-spin me-2"></i> Atualizando...');
+            $button.prop('disabled', true);
+            
+            // Simulate API call
+            setTimeout(function() {
+                $button.html('<i class="fas fa-check me-2"></i> Atualizado!');
+                
+                // Reset button after a moment
+                setTimeout(function() {
+                    $button.html(originalText);
+                    $button.prop('disabled', false);
+                    
+                    // Add a new entry to the history
+                    var now = new Date();
+                    var formattedDate = now.getDate() + '/' + (now.getMonth() + 1) + '/' + now.getFullYear() + ' ' + 
+                                        now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+                    
+                    var newHistoryItem = `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">QR Code Atualizado</h6>
+                                    <small class="text-muted">${formattedDate}</small>
+                                </div>
+                                <span class="badge bg-success rounded-pill">
+                                    <i class="fas fa-check"></i>
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    $(".list-group-flush").prepend(newHistoryItem);
+                    
+                }, 1500);
+                
+            }, 2000);
+        });
+        
+        // Print QR Code
+        $("#printQRCode").click(function() {
+            window.print();
+        });
+        
+        // Simulate download QR code
+        $("#downloadQR").click(function(e) {
+            e.preventDefault();
+            alert("QR Code baixado com sucesso!");
+        });
+        
+        // Simulate email QR code
+        $("#emailQR").click(function(e) {
+            e.preventDefault();
+            alert("O QR Code foi enviado para seu email cadastrado.");
+        });
+        
+        // Copy link
+        $("#copyLink").click(function(e) {
+            e.preventDefault();
+            
+            // Create temporary input
+            var tempInput = $("<input>");
+            $("body").append(tempInput);
+            tempInput.val(window.location.href).select();
+            document.execCommand("copy");
+            tempInput.remove();
+            
+            alert("Link copiado para a área de transferência!");
+        });
+        
+        // Show verification modal for demo purposes
+        $(".qrcode-img").click(function() {
+            $("#qrVerificationModal").modal('show');
+        });
+    });
+</script>
+{% endblock %}
