@@ -6,9 +6,13 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from .forms import UserRegistrationForm
 from django.conf import settings
+import requests
 
 # Import the ACAPY client
 from .acapy_client import AcapyClient
+import logging
+
+logger = logging.getLogger(__name__)
 
 ACAPY_CONTROLLER_URL = getattr(
     settings, "ACAPY_CONTROLLER_URL", "http://localhost:5000"
@@ -31,17 +35,30 @@ def issue_badge(request):
         "teste": "Olá",
     }
 
-    invitation_data = acapy_client.create_invitation(
-        alias="badge connection",
-        auto_accept=False,
-        multi_use=False,
-        use_public_did=False,
-    )
+    invitation = ""
+    connection_id = ""
+    invitation_url = ""
 
-    # Extract the invitation and connection_id
-    invitation = invitation_data.get("invitation")
-    connection_id = invitation_data.get("connection_id")
-    invitation_url = invitation_data.get("invitation_url")
+    try:
+        invitation_data = acapy_client.create_invitation(
+            alias="badge connection",
+            auto_accept=False,
+            multi_use=False,
+            use_public_did=False,
+        )
+
+        # Extract the invitation and connection_id
+        invitation = invitation_data.get("invitation")
+        connection_id = invitation_data.get("connection_id")
+        invitation_url = invitation_data.get("invitation_url")
+
+    except requests.exceptions.HTTPError as err:
+        logger.error(err)
+    except Exception as err:
+        logger.error(err)
+
+    if not invitation:
+        return render(request, "student/badge.html", {"is_expired": True})
 
     # Store the connection_id in the session for later use
     request.session["connection_id"] = connection_id
