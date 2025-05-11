@@ -126,8 +126,8 @@
                 <div class="position-relative d-inline-block">
                     <!-- QR Code Container -->
                     <div class="qrcode-container mb-4">
-                        {% if qrcode_url %}
-                            <img src="{{ qrcode_url }}" alt="Badge QR Code" class="qrcode-img">
+                        {% if qr_code_img %}
+                            <img src="{{ qr_code_img }}" alt="Badge QR Code" class="qrcode-img">
                         {% else %}
                             <!-- Placeholder when API doesn't return a QR code -->
                             <img src="{% static 'core/qrcode-placeholder.png' %}" alt="QR Code Placeholder" class="qrcode-img">
@@ -159,6 +159,11 @@
                         <div class="col-6">
                             <p class="small text-muted mb-1">Válido até</p>
                             <p class="fw-bold {% if is_expired %}text-danger{% endif %}">{{ expiry_date|default:"01/05/2025" }}</p>
+                        </div>
+
+                        <div class="col-12">
+                            <p class="small text-muted mb-1">Convite (JSON)</p>
+                            <p class="fw-bold">{{ invitation_json }}</p>
                         </div>
                     </div>
                 </div>
