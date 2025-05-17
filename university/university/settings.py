@@ -17,7 +17,8 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv()
+load_dotenv(f"{BASE_DIR}/.env")
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -133,16 +134,17 @@ STATICFILES_DIRS = [
 ]
 
 LOGIN_REDIRECT_URL = "student:home"
+# LOGOUT_REDIRECT_URL = "login"
 LOGOUT_URL = "logout"
 LOGIN_URL = "login"
 
 ### ACAPY settings ###
-TRACTION_TENANT_ID = "6a528e6e-eb47-4dad-a956-9f6357e650ed"
-TRACTION_API_KEY = "ce5726513ccb48a18c99bb71bbc594bc"
-TRACTION_CREDENTIAL_DEFINITION_ID = "YN8jNEwS8EtwJbeAQoFvSR:3:CL:2806260:Demo Issuance"
-
-# TRACTION_TENANT_ID = os.getenv("TENANT_ID", "")
-# TRACTION_API_KEY = os.getenv("API_KEY", "")
-# TRACTION_CREDENTIAL_DEFINITION_ID = os.getenv("CREDENTIAL_DEFINITION_ID", "")
-AUTO_ISSUE = False
+TRACTION_TENANT_ID = os.getenv("TRACTION_TENANT_ID")
+TRACTION_API_KEY = os.getenv("TRACTION_API_KEY")
+TRACTION_CREDENTIAL_DEFINITION_ID = os.getenv("TRACTION_CREDENTIAL_DEFINITION_ID")
+CREDENTIAL_AUTO_ISSUE = eval(os.getenv("CREDENTIAL_AUTO_ISSUE", "False"))
 CREDENTIAL_DATA = {"givenName": "John", "familyName": "Doe", "expires": "20231231"}
+TRACTION_API_BASE_URL = os.getenv(
+    "TRACTION_API_BASE_URL",
+    "https://traction-sandbox-tenant-proxy.apps.silver.devops.gov.bc.ca",
+)

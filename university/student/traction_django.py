@@ -5,9 +5,8 @@ This file provides utilities for using TractionAPI within a Django application.
 
 from django.conf import settings
 from django.core.cache import cache
-from django.utils.functional import lazy
 
-from .traction_api import TractionAPI, TractionAPIError
+from .traction_api import TractionAPI
 
 
 class TractionDjangoClient:
@@ -26,16 +25,20 @@ class TractionDjangoClient:
         if cls._instance is None:
             # Get settings from Django settings
             api_key = getattr(settings, "TRACTION_API_KEY", None)
-            base_url = getattr(
-                settings, "TRACTION_API_BASE_URL", "https://api.traction.io/v1"
-            )
+            base_url = getattr(settings, "TRACTION_API_BASE_URL", "")
             timeout = getattr(settings, "TRACTION_API_TIMEOUT", 30)
+            tenant_id = getattr(settings, "TRACTION_TENANT_ID", None)
+            if not tenant_id:
+                raise ValueError("TRACTION_TENANT_ID is required in Django settings")
+
+            if not base_url:
+                raise ValueError("TRACTION_API_BASE_URL is required in Django settings")
 
             if not api_key:
                 raise ValueError("TRACTION_API_KEY is required in Django settings")
 
             cls._instance = TractionAPI(
-                api_key=api_key, base_url=base_url, timeout=timeout
+                api_key=api_key, tenant_id=tenant_id, base_url=base_url, timeout=timeout
             )
 
         return cls._instance

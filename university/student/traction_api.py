@@ -7,9 +7,10 @@ opportunity tracking, and reporting.
 """
 
 import requests
-import json
-from typing import Dict, List, Optional, Union, Any
-from urllib.parse import urlencode
+from typing import Dict, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TractionAPIError(Exception):
@@ -27,6 +28,7 @@ class TractionAPI:
     def __init__(
         self,
         api_key: str,
+        tenant_id: str = None,
         base_url: str = "https://api.traction.io/v1",
         timeout: int = 30,
     ):
@@ -44,11 +46,40 @@ class TractionAPI:
         self.api_key = api_key
         self.base_url = base_url
         self.timeout = timeout
+        self.tenant_id = tenant_id
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
+
+    def authenticate(self) -> str:
+        """
+        Authenticate with the Traction API and return the token
+
+        Returns:
+            str: Authentication token
+        """
+        url = f"{self.base_url}/multitenancy/tenant/{self.tenant_id}/token"
+        response = requests.post(url, json={"api_key": self.api_key})
+        if response.status_code != 200:
+            logger.error(f"Authentication failed: {response.text}")
+            raise TractionAPIError(
+                message="Authentication failed",
+                status_code=response.status_code,
+                data=response.json(),
+            )
+        data = response.json()
+        token = data.get("token")
+        if not token:
+            logger.error("Token not found in response")
+            raise TractionAPIError(
+                message="Token not found in response",
+                status_code=response.status_code,
+                data=data,
+            )
+        logger.info("Authentication successful")
+        return token
 
     def _request(
         self,
@@ -114,216 +145,49 @@ class TractionAPI:
         """
         return self._request("GET", "/status")
 
-    # Customer methods
-
-    def get_customers(self, page: int = 1, limit: int = 20, **kwargs) -> Dict:
-        """
-        Get all customers
-
-        Args:
-            page: Page number
-            limit: Items per page
-            **kwargs: Additional filter parameters
-
-        Returns:
-            List of customers
-        """
-        params = {"page": page, "limit": limit, **kwargs}
-        return self._request("GET", "/customers", params=params)
-
-    def get_customer(self, customer_id: str) -> Dict:
-        """
-        Get a customer by ID
-
-        Args:
-            customer_id: Customer ID
-
-        Returns:
-            Customer data
-        """
-        if not customer_id:
-            raise ValueError("Customer ID is required")
-
-        return self._request("GET", f"/customers/{customer_id}")
-
-    def create_customer(self, customer_data: Dict) -> Dict:
-        """
-        Create a new customer
-
-        Args:
-            customer_data: Customer data
-
-        Returns:
-            Created customer data
-        """
-        if not customer_data:
-            raise ValueError("Customer data is required")
-
-        return self._request("POST", "/customers", data=customer_data)
-
-    def update_customer(self, customer_id: str, customer_data: Dict) -> Dict:
-        """
-        Update a customer
-
-        Args:
-            customer_id: Customer ID
-            customer_data: Customer data to update
-
-        Returns:
-            Updated customer data
-        """
-        if not customer_id:
-            raise ValueError("Customer ID is required")
-
-        if not customer_data:
-            raise ValueError("Customer data is required")
-
-        return self._request("PUT", f"/customers/{customer_id}", data=customer_data)
-
-    def delete_customer(self, customer_id: str) -> Dict:
-        """
-        Delete a customer
-
-        Args:
-            customer_id: Customer ID
-
-        Returns:
-            Deletion status
-        """
-        if not customer_id:
-            raise ValueError("Customer ID is required")
-
-        return self._request("DELETE", f"/customers/{customer_id}")
-
-    # Opportunity methods
-
-    def get_opportunities(
-        self, page: int = 1, limit: int = 20, status: Optional[str] = None, **kwargs
-    ) -> Dict:
-        """
-        Get all opportunities
-
-        Args:
-            page: Page number
-            limit: Items per page
-            status: Filter by status
-            **kwargs: Additional filter parameters
-
-        Returns:
-            List of opportunities
-        """
-        params = {"page": page, "limit": limit, **kwargs}
-        if status:
-            params["status"] = status
-
-        return self._request("GET", "/opportunities", params=params)
-
-    def get_opportunity(self, opportunity_id: str) -> Dict:
-        """
-        Get an opportunity by ID
-
-        Args:
-            opportunity_id: Opportunity ID
-
-        Returns:
-            Opportunity data
-        """
-        if not opportunity_id:
-            raise ValueError("Opportunity ID is required")
-
-        return self._request("GET", f"/opportunities/{opportunity_id}")
-
-    def create_opportunity(self, opportunity_data: Dict) -> Dict:
-        """
-        Create a new opportunity
-
-        Args:
-            opportunity_data: Opportunity data
-
-        Returns:
-            Created opportunity data
-        """
-        if not opportunity_data:
-            raise ValueError("Opportunity data is required")
-
-        return self._request("POST", "/opportunities", data=opportunity_data)
-
-    def update_opportunity(self, opportunity_id: str, opportunity_data: Dict) -> Dict:
-        """
-        Update an opportunity
-
-        Args:
-            opportunity_id: Opportunity ID
-            opportunity_data: Opportunity data to update
-
-        Returns:
-            Updated opportunity data
-        """
-        if not opportunity_id:
-            raise ValueError("Opportunity ID is required")
-
-        if not opportunity_data:
-            raise ValueError("Opportunity data is required")
-
-        return self._request(
-            "PUT", f"/opportunities/{opportunity_id}", data=opportunity_data
-        )
-
-    # Report methods
-
-    def get_sales_report(
+    # Custom methods
+    def send_traction_request(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        group_by: Optional[str] = None,
+        endpoint: str,
+        body: Dict = {},
+        params: Dict = None,
     ) -> Dict:
         """
-        Get sales report
+        Send a request to the Traction API
 
         Args:
-            start_date: Start date (YYYY-MM-DD)
-            end_date: End date (YYYY-MM-DD)
-            group_by: Group by field
+            endpoint: API endpoint
+            body: Request body
+            params: Query parameters
 
         Returns:
-            Sales report data
+            Response data
         """
-        params = {}
-        if start_date:
-            params["start_date"] = start_date
-        if end_date:
-            params["end_date"] = end_date
-        if group_by:
-            params["group_by"] = group_by
+        logger.info("Sending request to Traction API.")
+        if not endpoint:
+            raise ValueError("Endpoint is required")
 
-        return self._request("GET", "/reports/sales", params=params)
+        if not body:
+            logger.warning("Request body is empty")
 
-    def get_customer_activity_report(
-        self,
-        customer_id: str,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-    ) -> Dict:
-        """
-        Get customer activity report
+        if not params:
+            logger.warning("Request parameters are empty")
 
-        Args:
-            customer_id: Customer ID
-            start_date: Start date (YYYY-MM-DD)
-            end_date: End date (YYYY-MM-DD)
+        url = f"{self.base_url}{endpoint}"
 
-        Returns:
-            Customer activity report data
-        """
-        if not customer_id:
-            raise ValueError("Customer ID is required")
+        logger.debug(f"Request URL: {url}")
+        token = (
+            self.authenticate()
+        )  # Token pode ser utilizado em mais de uma requisição?? #TODO Testar
 
-        params = {}
-        if start_date:
-            params["start_date"] = start_date
-        if end_date:
-            params["end_date"] = end_date
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
 
-        return self._request(
-            "GET", f"/reports/customer-activity/{customer_id}", params=params
-        )
+        response = requests.post(url, json=body, params=params, headers=headers)
+
+        logger.debug(f"Response status code: {response.status_code}")
+        logger.debug(f"Response body: {response.text}")
+        return response.json()

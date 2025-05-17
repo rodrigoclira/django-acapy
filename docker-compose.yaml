@@ -3,4 +3,11 @@ services:
     web:
       build: university
       ports: 
-      - '8000:8000'      
+      - '8000:8000'
+      env_file: "university/.env"
+      # environment:
+      #   - DEBUG=True
+      #   - TRACTION_TENANT_ID=<TRACTION_TENANT_ID_HERE>
+      #   - TRACTION_API_KEY=<TRACTION_API_KEY_HERE>
+      #   - TRACTION_CREDENTIAL_DEFINITION_ID=<TRACTION_CREDENTIAL_DEFINITION_ID_HERE>
+      #   - CREDENTIAL_AUTO_ISSUE=<CREDENTIAL_AUTO_ISSUE_HERE>

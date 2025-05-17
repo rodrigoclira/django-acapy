@@ -9,7 +9,7 @@ urlpatterns = [
     # path("", views.redirecionar, name="redirect"),
     path("register/", views.register, name="register"),
     #
-    path("credential/", views.issue_badge, name="issue-badge"),
+    path("credential/", views.issue_credential, name="issue-badge"),
     # Webhook endpoints
     path("topic/connections/", views.webhook_connections, name="webhook_connections"),
     path(

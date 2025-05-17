@@ -1,45 +1,21 @@
-import io
-import base64
 import json
-import qrcode
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
+from student.traction_django import get_traction_client
+
 from .models import ConnectionState
 from .forms import UserRegistrationForm
+from .util import generate_qrcode
 from django.conf import settings
 import requests
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.http import HttpResponse
 import logging
+from .EnumState import StateModelEnum
 
 logger = logging.getLogger(__name__)
-
-
-def send_traction_request(relative_url, body=None, params=None):
-    """Send a request to Traction API"""
-    if body is None:
-        body = {}
-
-    token = authenticate()
-    logger.info("Sending request to Traction.")
-
-    url = f"https://traction-sandbox-tenant-proxy.apps.silver.devops.gov.bc.ca{relative_url}"
-    headers = {"User-Agent": "Traction Demo", "Authorization": f"Bearer {token}"}
-
-    response = requests.post(url, json=body, params=params, headers=headers)
-    return response.json()
-
-
-#  Helper functions
-def authenticate():
-    """Authenticate with Traction"""
-    logger.info("Authenticating with Traction.")
-    url = f"https://traction-sandbox-tenant-proxy.apps.silver.devops.gov.bc.ca/multitenancy/tenant/{settings.TRACTION_TENANT_ID}/token"
-    response = requests.post(url, json={"api_key": settings.TRACTION_API_KEY})
-    data = response.json()
-    return data.get("token")
 
 
 @login_required
@@ -52,7 +28,7 @@ def home(request):
 
 
 @login_required
-def issue_badge(request):
+def issue_credential(request):
     context = {
         "teste": "Olá",
     }
@@ -62,16 +38,11 @@ def issue_badge(request):
     invitation_url = ""
 
     try:
-        invitation_data = send_traction_request(
-            "/connections/create-invitation",
-            {},
-            {
-                # "alias": "demo-connection",
-                # "auto_accept": True,
-                # "multi_use": True,
-                # "public": False,
-            },
+        _client = get_traction_client()
+        invitation_data = _client.send_traction_request(
+            endpoint="/connections/create-invitation"
         )
+        logger.info(invitation_data)
 
         # Extract the invitation and connection_id
         invitation = invitation_data.get("invitation")
@@ -85,7 +56,7 @@ def issue_badge(request):
         logger.error(err)
 
     if not invitation:
-        return render(request, "student/badge.html", {"is_expired": True})
+        return render(request, "student/credential.html", {"is_expired": True})
 
     # Store the connection_id in the session for later use
     request.session["connection_id"] = connection_id
@@ -98,33 +69,21 @@ def issue_badge(request):
         # Otherwise, use the full invitation JSON
         qr_content = json.dumps(invitation)
 
-    # Generate QR code
-    qr = qrcode.QRCode(
+    img_base64 = generate_qrcode(
+        qr_content,
         version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
         box_size=10,
         border=4,
+        fill_color="black",
+        back_color="white",
     )
-    qr.add_data(qr_content)
-    qr.make(fit=True)
-
-    # Create an image from the QR code
-    img = qr.make_image(fill_color="black", back_color="white")
-
-    # Save the image to a bytes buffer
-    buffer = io.BytesIO()
-    img.save(buffer, format="PNG")
-    buffer.seek(0)
-
-    # Convert the image to a base64 string to display in HTML
-    img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     ConnectionState.objects.create(
         connection_id=connection_id,
         revocation_registry_id="",
         revocation_id="",
         presentation_exchange_id="",
-        state="CONNECTION INVITATION",
+        state=StateModelEnum.CONNECTION_INVITATION.value,
         user=request.user,
     )
 
@@ -136,7 +95,7 @@ def issue_badge(request):
         "invitation_json": json.dumps(invitation, indent=4),
     }
 
-    return render(request, "student/badge.html", context)
+    return render(request, "student/credential.html", context)
 
 
 def register(request):
@@ -178,10 +137,11 @@ def webhook_connections(request):
     logger.info("Sending credential offer.")
 
     # Create a credential offer
-    send_traction_request(
-        "/issue-credential/send-offer",
-        {
-            "auto_issue": settings.AUTO_ISSUE,
+    _client = get_traction_client()
+    _client.send_traction_request(
+        endpoint="/issue-credential/send-offer",
+        body={
+            "auto_issue": settings.CREDENTIAL_AUTO_ISSUE,
             "auto_remove": False,
             "connection_id": body.get("connection_id"),
             "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID,
@@ -206,7 +166,7 @@ def webhook_connections(request):
         },
     )
 
-    state_model.state = "OFFER SENT"
+    state_model.state = StateModelEnum.CREDENTIAL_OFFER.value
     state_model.save()
 
     return HttpResponse(status=200)
@@ -243,7 +203,9 @@ def webhook_issue_credential(request):
         if not body.get("auto_issue"):
             logger.info("Issuing credential.")
             # Create a credential offer
-            send_traction_request(
+            _client = get_traction_client()
+            # send_traction_request(
+            _client.send_traction_request(
                 f"/issue-credential/records/{body.get('credential_exchange_id')}/issue"
             )
 
