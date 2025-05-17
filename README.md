@@ -30,4 +30,6 @@ python manage.py migrate
 
 `http://127.0.0.1:8000/register`
 
-Com esse usuário será possível acessar a aplicação. 
+Com esse usuário será possível criar um usuário e posteriormente acessar a aplicação. 
+
+`http://127.0.0.1:8000/login`
