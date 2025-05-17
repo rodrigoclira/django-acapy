@@ -17,29 +17,29 @@ TRACTION_API_BASE_URL="https://traction-sandbox-tenant-proxy.apps.silver.devops.
 CREDENTIAL_AUTO_ISSUE="False"
 ```
 
-2. Rode o localserver e copie o link para webhook das configurações do `Traction`. Caso não possua o localserver instalado, execute: `npm install -g localtunnel`. Em seguida, obtenha a URL pública:
+2. Execute o localserver. Caso não possua o localserver instalado, execute: `npm install -g localtunnel`. Em seguida, obtenha a URL pública:
 > Caso essa configuração já tenha sido feita no Passo 1, siga para a execução do projeto (Passo 4).
 
 ```bash 
 lt --port 8000
-your url is: https://URL-LOCALSERVER
 ```
 
-3. Pega a url indicada pelo localserver e salve-a na sua conta do Traction. Impotante: Se o localserver fechar, será necessário atualizar o traction com a nova url para que o webhooker continue funcionando. 
+3. Copie a url indicada pelo localserver e salve-a na sua conta do Traction. Impotante: Se o localserver fechar, será necessário atualizar o Traction com a nova url para o webhooker continar funcionando. 
 
 
-4. Após realizadas essas configurações, você pode fazer um dos seguintes comandos: 
+4. Após realizadas essas configurações, você pode fazer um dos seguintes comando na pasta raíz do repositório: 
 
-
-```docker-compose up --build```
+```
+docker-compose up --build
+```
 
 ou na pasta `university/`, após instalar as bibliotecas indicadas nos `requirements.txt`:
 
-```python manage.py runserver
+```
+python manage.py runserver
+````
 
-
-5. Acesso a página inicial `http://127.0.0.1:8000`
-Você pode criar um novo usuário ou um que já está armazenado na base:
+5. Acesse a página inicial `http://127.0.0.1:8000`. Nela, você pode criar um novo usuário ou usar o usuário abaixo que já está armazenado na base.
 
 ```
 usuário: rodrigo
