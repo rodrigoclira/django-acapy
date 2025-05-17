@@ -134,7 +134,11 @@
 									{% comment %} <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="fas fa-id-card"></i> Perfil</a></li> {% endcomment %}
 									{% comment %} <li><a class="dropdown-item" href="{% url 'dashboard' %}"><i class="fas fa-tachometer-alt"></i> Painel</a></li> {% endcomment %}
 									<li><hr class="dropdown-divider"></li>
-									<li><a class="dropdown-item" href="{% url 'logout' %}"><i class="fas fa-sign-out-alt"></i> Sair</a></li>
+									{% comment %} <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="fas fa-sign-out-alt"></i> Sair</a></li> {% endcomment %}
+									<form method="post" action="{% url 'logout' %}">
+									{% csrf_token %}
+										<button class="dropdown-item" type="submit">logout</button>
+									</form>
 								</ul>
 							</div>
 						{% else %}
