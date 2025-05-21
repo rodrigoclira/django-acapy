@@ -166,7 +166,7 @@ def webhook_connections(request):
         },
     )
 
-    state_model.state = StateModelEnum.CREDENTIAL_OFFER.value
+    state_model.state = StateModelEnum.OFFER_SENT.value
     state_model.save()
 
     return HttpResponse(status=200)
