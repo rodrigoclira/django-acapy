@@ -14,24 +14,21 @@ from django.views.decorators.http import require_http_methods
 from django.http import HttpResponse
 import logging
 from .EnumState import StateModelEnum
+import datetime
 
 logger = logging.getLogger(__name__)
 
 
 @login_required
 def home(request):
-    context = {
-        "teste": "Olá",
-    }
+    context = {}
 
     return render(request, "student/home.html", context)
 
 
 @login_required
 def issue_credential(request):
-    context = {
-        "teste": "Olá",
-    }
+    context = {}
 
     invitation = ""
     connection_id = ""
@@ -112,6 +109,71 @@ def register(request):
     return render(request, "student/register.html", {"user_form": user_form})
 
 
+@login_required
+def presentation_request(request):
+    logger.info("Sending presentation request")
+    context = {}
+
+    # Check if the user has an existing connection state
+    if request.method == "POST":
+        state_model = ConnectionState.objects.filter(user=request.user).last()
+
+        if state_model:
+            logger.info(f"Using existing state model: {state_model}")
+            body = {
+                "connection_id": state_model.connection_id,
+                "auto_verify": False,
+                "trace": False,
+                "proof_request": {
+                    "name": "proof-request",
+                    "nonce": "1234567890",
+                    "version": "1.0",
+                    "requested_attributes": {
+                        "demo_attributes": {
+                            "names": ["given_name", "family_name"],
+                            "restrictions": [
+                                {
+                                    "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID
+                                }
+                            ],
+                        }
+                    },
+                    "requested_predicates": {
+                        "not_expired": {
+                            "name": "expires",
+                            "p_type": ">=",
+                            "p_value": datetime.date.today()
+                            .isoformat()
+                            .replace(
+                                "-", ""
+                            ),  # Number.parseInt(new Date().toISOString().substring(0, 10).replace(/-/g, '')),
+                            "restrictions": [
+                                {
+                                    "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID
+                                }
+                            ],
+                        }
+                    },
+                },
+            }
+
+            _client = get_traction_client()
+            send_request_data = _client.send_traction_request(
+                endpoint="/present-proof/send-request", body=body
+            )
+            logger.info(send_request_data)
+
+            state_model.presentation_exchange_id = send_request_data.get(
+                "presentation_exchange_id"
+            )
+            state_model.save()
+            context = {"show_request": False}
+    else:
+        context = {"show_request": True}
+
+    return render(request, "student/request-credential.html", context)
+
+
 ## Webhook endpoints ##
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -187,18 +249,30 @@ def webhook_issue_credential(request):
     ).first()
 
     # If state = abandoned then user declined
-    if body.get("state") == "abandoned" and state_model.state == "OFFER SENT":
-        logger.info("User declined.")
+    if (
+        body.get("state") == "abandoned"
+        and state_model.state == StateModelEnum.OFFER_SENT.value
+    ):
+        logger.info("User declined offer.")
 
     # If state = credential_acked or credential_issued then user received the credential in their wallet
     if body.get("state") in [
         "credential_acked",
         "credential_issued",
-    ] and state_model.state in ["OFFER SENT", "CREDENTIAL ISSUED"]:
+    ] and state_model.state in [
+        StateModelEnum.OFFER_SENT.value,
+        StateModelEnum.CREDENTIAL_ISSUED.value,
+    ]:
+        state_model.revocation_registry_id = body.get("revocation_registry_id") or ""
+        state_model.revocation_id = body.get("revocation_id") or ""
+        state_model.save()
         logger.info("Issuance complete.")
 
     # If state = request_received then we received the credential request
-    if body.get("state") == "request_received" and state_model.state == "OFFER SENT":
+    if (
+        body.get("state") == "request_received"
+        and state_model.state == StateModelEnum.OFFER_SENT.value
+    ):
         # If we're not auto-issuing the credential then we must manually issue
         if not body.get("auto_issue"):
             logger.info("Issuing credential.")
@@ -208,7 +282,8 @@ def webhook_issue_credential(request):
             _client.send_traction_request(
                 f"/issue-credential/records/{body.get('credential_exchange_id')}/issue"
             )
-
+        state_model.state = StateModelEnum.CREDENTIAL_ISSUED.value
+        state_model.save()
     return HttpResponse(status=200)
 
 
@@ -218,15 +293,35 @@ def webhook_present_proof(request):
     """Handle present proof webhook"""
     body = json.loads(request.body)
 
-    # if (
-    #     app_state.presentation_exchange_id is None
-    #     or app_state.presentation_exchange_id != body.get("presentation_exchange_id")
-    # ):
-    #     return HttpResponse(status=200)
+    state_model = ConnectionState.objects.filter(
+        connection_id=body.get("connection_id")
+    ).first()
+
+    if (
+        state_model is None
+        or state_model.presentation_exchange_id is None
+        or state_model.presentation_exchange_id != body.get("presentation_exchange_id")
+    ):
+        return HttpResponse(status=200)
 
     if body.get("state") == "verified":
         logger.info("User presented successfully.")
+        state_model.presentation_exchange_id = ""
+        state_model.save()
     elif body.get("state") == "abandoned":
         logger.info("User declined presentation.")
+        state_model.presentation_exchange_id = ""
+        state_model.save()
+
+    return HttpResponse(status=200)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def webhook_ping(request):
+    """Handle ping webhook"""
+    body = json.loads(request.body)
+
+    logger.info(body)
 
     return HttpResponse(status=200)

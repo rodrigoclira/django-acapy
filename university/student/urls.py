@@ -10,6 +10,10 @@ urlpatterns = [
     path("register/", views.register, name="register"),
     #
     path("credential/", views.issue_credential, name="issue-badge"),
+    #
+    path(
+        "presentation_request/", views.presentation_request, name="presentation-request"
+    ),
     # Webhook endpoints
     path("topic/connections/", views.webhook_connections, name="webhook_connections"),
     path(
@@ -22,4 +26,5 @@ urlpatterns = [
         views.webhook_present_proof,
         name="webhook_present_proof",
     ),
+    path("topic/ping/", views.webhook_ping, name="webhook_ping"),
 ]
