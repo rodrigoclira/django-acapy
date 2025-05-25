@@ -143,7 +143,7 @@ TRACTION_TENANT_ID = os.getenv("TRACTION_TENANT_ID")
 TRACTION_API_KEY = os.getenv("TRACTION_API_KEY")
 TRACTION_CREDENTIAL_DEFINITION_ID = os.getenv("TRACTION_CREDENTIAL_DEFINITION_ID")
 CREDENTIAL_AUTO_ISSUE = eval(os.getenv("CREDENTIAL_AUTO_ISSUE", "False"))
-CREDENTIAL_DATA = {"givenName": "John", "familyName": "Doe", "expires": "20231231"}
+CREDENTIAL_DATA = {"givenName": "John", "familyName": "Doe", "expires": "20261231"}
 TRACTION_API_BASE_URL = os.getenv(
     "TRACTION_API_BASE_URL",
     "https://traction-sandbox-tenant-proxy.apps.silver.devops.gov.bc.ca",

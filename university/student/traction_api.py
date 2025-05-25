@@ -149,7 +149,7 @@ class TractionAPI:
     def send_traction_request(
         self,
         endpoint: str,
-        body: Dict = {},
+        data: Dict = {},
         params: Dict = None,
     ) -> Dict:
         """
@@ -167,7 +167,7 @@ class TractionAPI:
         if not endpoint:
             raise ValueError("Endpoint is required")
 
-        if not body:
+        if not data:
             logger.warning("Request body is empty")
 
         if not params:
@@ -186,7 +186,7 @@ class TractionAPI:
             "Accept": "application/json",
         }
 
-        response = requests.post(url, json=body, params=params, headers=headers)
+        response = requests.post(url, json=data, params=params, headers=headers)
 
         logger.debug(f"Response status code: {response.status_code}")
         logger.debug(f"Response body: {response.text}")

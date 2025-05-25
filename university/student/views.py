@@ -1,20 +1,21 @@
+import datetime
 import json
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
+import logging
 
-from student.traction_django import get_traction_client
-
-from .models import ConnectionState
-from .forms import UserRegistrationForm
-from .util import generate_qrcode
-from django.conf import settings
 import requests
+from student import webhook
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.http import HttpResponse
-import logging
+from student.traction_django import get_traction_client
+
 from .EnumState import StateModelEnum
-import datetime
+from .forms import UserRegistrationForm
+from .models import ConnectionState
+from .util import generate_qrcode
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +36,16 @@ def issue_credential(request):
     invitation_url = ""
 
     try:
+        payload = {"handshake_protocols": ["didexchange/1.1"], "use_public_did": False}
+        invi_params = {
+            "auto_accept": "true",
+            "multi_use": "false",
+            "create_unique_did": "false",
+        }
+
         _client = get_traction_client()
         invitation_data = _client.send_traction_request(
-            endpoint="/connections/create-invitation"
+            endpoint="/connections/create-invitation", data=payload, params=invi_params
         )
         logger.info(invitation_data)
 
@@ -118,54 +126,133 @@ def presentation_request(request):
     if request.method == "POST":
         state_model = ConnectionState.objects.filter(user=request.user).last()
 
+        # {
+        #     "presentation_request": {
+        #         "indy": {
+        #             "name": "Proof of Education",
+        #             "version": "1.0",
+        #             "requested_attributes": {
+        #                 "0_name_uuid": {
+        #                     "name": "name",
+        #                     "restrictions": [{"schema_name": "degree schema"}],
+        #                 },
+        #                 "0_date_uuid": {
+        #                     "name": "date",
+        #                     "restrictions": [{"schema_name": "degree schema"}],
+        #                 },
+        #                 "0_degree_uuid": {
+        #                     "name": "degree",
+        #                     "restrictions": [{"schema_name": "degree schema"}],
+        #                 },
+        #             },
+        #             "requested_predicates": {
+        #                 "0_birthdate_dateint_GE_uuid": {
+        #                     "name": "birthdate_dateint",
+        #                     "p_type": "<=",
+        #                     "p_value": 20070525,
+        #                     "restrictions": [{"schema_name": "degree schema"}],
+        #                 }
+        #             },
+        #         }
+        #     },
+        #     "trace": False,
+        #     "connection_id": "3c8ff292-1481-47ac-9fba-1c3456ab1438",
+        # }
+
         if state_model:
             logger.info(f"Using existing state model: {state_model}")
-            body = {
+            data = {
+                "presentation_request": {
+                    "indy": {
+                        "name": "Proof of Individuality",
+                        "version": "1.0",
+                        "requested_attributes": {
+                            "0_given_name_uuid": {
+                                "name": "given_name",
+                                "restrictions": [
+                                    {
+                                        "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID
+                                    }
+                                ],
+                            },
+                            "0_family_name_uuid": {
+                                "name": "family_name",
+                                "restrictions": [
+                                    {
+                                        "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID
+                                    }
+                                ],
+                            },
+                        },
+                        "requested_predicates": {
+                            "not_expired": {
+                                "name": "expires",
+                                "p_type": ">=",
+                                "p_value": datetime.date.today()
+                                .isoformat()
+                                .replace("-", ""),
+                                "restrictions": [
+                                    {
+                                        "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID
+                                    }
+                                ],
+                            }
+                        },
+                    }
+                },
+                "trace": False,
+                "connection_id": state_model.connection_id,
+            }
+
+            old_data = {
                 "connection_id": state_model.connection_id,
                 "auto_verify": False,
-                "trace": False,
-                "proof_request": {
-                    "name": "proof-request",
-                    "nonce": "1234567890",
-                    "version": "1.0",
-                    "requested_attributes": {
-                        "demo_attributes": {
-                            "names": ["given_name", "family_name"],
-                            "restrictions": [
-                                {
-                                    "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID
-                                }
-                            ],
-                        }
-                    },
-                    "requested_predicates": {
-                        "not_expired": {
-                            "name": "expires",
-                            "p_type": ">=",
-                            "p_value": datetime.date.today()
-                            .isoformat()
-                            .replace(
-                                "-", ""
-                            ),  # Number.parseInt(new Date().toISOString().substring(0, 10).replace(/-/g, '')),
-                            "restrictions": [
-                                {
-                                    "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID
-                                }
-                            ],
-                        }
+                "auto_remove": False,
+                "trace": True,
+                "comment": "Please present your credential",
+                "goal_code": "present-credential",
+                "presentation_request": {
+                    "anoncreds": {
+                        "name": "proof-request",
+                        "nonce": "1234567890",
+                        "version": "1.0",
+                        "requested_attributes": {
+                            "demo_attributes": {
+                                "names": ["given_name", "family_name"],
+                                "restrictions": [
+                                    {
+                                        "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID
+                                    }
+                                ],
+                            }
+                        },
+                        "requested_predicates": {
+                            "not_expired": {
+                                "name": "expires",
+                                "p_type": ">=",
+                                "p_value": datetime.date.today()
+                                .isoformat()
+                                .replace(
+                                    "-", ""
+                                ),  # Number.parseInt(new Date().toISOString().substring(0, 10).replace(/-/g, '')),
+                                "restrictions": [
+                                    {
+                                        "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID
+                                    }
+                                ],
+                            }
+                        },
                     },
                 },
             }
 
             _client = get_traction_client()
             send_request_data = _client.send_traction_request(
-                endpoint="/present-proof/send-request", body=body
+                endpoint="/present-proof-2.0/send-request", data=data
             )
             logger.info(send_request_data)
 
-            state_model.presentation_exchange_id = send_request_data.get(
-                "presentation_exchange_id"
-            )
+            state_model.presentation_exchange_id = send_request_data.get("pres_ex_id")
             state_model.save()
             context = {"show_request": False}
     else:
@@ -174,154 +261,78 @@ def presentation_request(request):
     return render(request, "student/request-credential.html", context)
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def handle_topic(request, topic):
+    """Handle incoming messages for a specific topic"""
+    logger.info(f"Handling topic: {topic}")
+
+    # Process the request based on the topic
+    match topic:
+        case "connections":
+            return webhook.handle_webhook_connections(request)
+        case "issue_credential_v2_0":
+            return webhook.handle_webhook_issue_credential_v2_0(request)
+        case "issue_credential_v2_0_indy":
+            return webhook.handle_webhook_issue_credential_v2_0_indy(request)
+        case "issue_cred_rev":
+            return webhook.handle_webhook_issue_cred_rev(request)
+        # case "present_proof_v2_0":
+        #     return webhook.handle_webhook_present_proof(request)
+        # case "endorse_transaction":
+        #     return webhook.handle_webhook_endorse_transaction(request)
+        case "ping":
+            return webhook.handle_webhook_ping(request)
+        case _:
+            return HttpResponse("Topic not found", status=404)
+    # Add more cases as needed for other topics
+    # Uncomment the following lines if you want to handle specific topics
+    # elif topic == "connections":
+    # if topic == "connections":
+    #     return webhook.handle_webhook_connections(request)
+    # elif topic == "issue_credential_v2_0":
+    #     return webhook.handle_webhook_issue_credential_v2_0(request)
+    # elif topic == "present_proof_v2_0":
+    #     return webhook.handle_webhook_present_proof(request)
+    # elif topic == "endorse_transaction":
+    #     return webhook.handle_webhook_endorse_transaction(request)
+    # elif topic == "ping":
+    #     return webhook.handle_webhook_ping(request)
+    # else:
+    #     return HttpResponse("Topic not found", status=404)
+
+
 ## Webhook endpoints ##
 @csrf_exempt
 @require_http_methods(["POST"])
 def webhook_connections(request):
     """Handle connection webhook"""
-    # Check authorization
-    if request.headers.get("x-api-key") != "demo-issuance":
-        return HttpResponse(status=401)
-
-    body = json.loads(request.body)
-
-    logger.info(body.get("connection_id"))
-    logger.info(body.get("state"))
-    state_model = ConnectionState.objects.filter(
-        connection_id=body.get("connection_id")
-    ).first()
-
-    # Unless the connection is made (state = active) and we're in the correct state, we just wait
-    if body.get("state") != "active" or state_model.state != "CONNECTION INVITATION":
-        return HttpResponse(status=200)
-
-    # # Now that the connection is made, offer the credential
-    logger.info("Sending credential offer.")
-
-    # Create a credential offer
-    _client = get_traction_client()
-    _client.send_traction_request(
-        endpoint="/issue-credential/send-offer",
-        body={
-            "auto_issue": settings.CREDENTIAL_AUTO_ISSUE,
-            "auto_remove": False,
-            "connection_id": body.get("connection_id"),
-            "cred_def_id": settings.TRACTION_CREDENTIAL_DEFINITION_ID,
-            "trace": False,
-            "credential_preview": {
-                "@type": "issue-credential/1.0/credential-preview",
-                "attributes": [
-                    {
-                        "name": "given_name",
-                        "value": state_model.user.first_name,
-                    },
-                    {
-                        "name": "family_name",
-                        "value": state_model.user.last_name,
-                    },
-                    {
-                        "name": "expires",
-                        "value": settings.CREDENTIAL_DATA.get("expires"),
-                    },
-                ],
-            },
-        },
-    )
-
-    state_model.state = StateModelEnum.OFFER_SENT.value
-    state_model.save()
-
-    return HttpResponse(status=200)
+    return webhook.handle_webhook_connections(request)
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def webhook_issue_credential(request):
+def webhook_issue_credential_v2_0(request):
     """Handle issue credential webhook"""
-    # Check authorization
-    if request.headers.get("x-api-key") != "demo-issuance":
-        return HttpResponse(status=401)
-
-    body = json.loads(request.body)
-
-    state_model = ConnectionState.objects.filter(
-        connection_id=body.get("connection_id")
-    ).first()
-
-    # If state = abandoned then user declined
-    if (
-        body.get("state") == "abandoned"
-        and state_model.state == StateModelEnum.OFFER_SENT.value
-    ):
-        logger.info("User declined offer.")
-
-    # If state = credential_acked or credential_issued then user received the credential in their wallet
-    if body.get("state") in [
-        "credential_acked",
-        "credential_issued",
-    ] and state_model.state in [
-        StateModelEnum.OFFER_SENT.value,
-        StateModelEnum.CREDENTIAL_ISSUED.value,
-    ]:
-        state_model.revocation_registry_id = body.get("revocation_registry_id") or ""
-        state_model.revocation_id = body.get("revocation_id") or ""
-        state_model.save()
-        logger.info("Issuance complete.")
-
-    # If state = request_received then we received the credential request
-    if (
-        body.get("state") == "request_received"
-        and state_model.state == StateModelEnum.OFFER_SENT.value
-    ):
-        # If we're not auto-issuing the credential then we must manually issue
-        if not body.get("auto_issue"):
-            logger.info("Issuing credential.")
-            # Create a credential offer
-            _client = get_traction_client()
-            # send_traction_request(
-            _client.send_traction_request(
-                f"/issue-credential/records/{body.get('credential_exchange_id')}/issue"
-            )
-        state_model.state = StateModelEnum.CREDENTIAL_ISSUED.value
-        state_model.save()
-    return HttpResponse(status=200)
+    return webhook.handle_webhook_issue_credential_v2_0(request)
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def webhook_present_proof(request):
     """Handle present proof webhook"""
-    body = json.loads(request.body)
+    return webhook.handle_webhook_present_proof(request)
 
-    state_model = ConnectionState.objects.filter(
-        connection_id=body.get("connection_id")
-    ).first()
 
-    if (
-        state_model is None
-        or state_model.presentation_exchange_id is None
-        or state_model.presentation_exchange_id != body.get("presentation_exchange_id")
-    ):
-        return HttpResponse(status=200)
-
-    if body.get("state") == "verified":
-        logger.info("User presented successfully.")
-        state_model.presentation_exchange_id = ""
-        state_model.save()
-    elif body.get("state") == "abandoned":
-        logger.info("User declined presentation.")
-        state_model.presentation_exchange_id = ""
-        state_model.save()
-
-    return HttpResponse(status=200)
+@csrf_exempt
+@require_http_methods(["POST"])
+def webhook_endorse_transaction(request):
+    """Handle endorse transaction webhook"""
+    return webhook.handle_webhook_endorse_transaction(request)
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def webhook_ping(request):
     """Handle ping webhook"""
-    body = json.loads(request.body)
-
-    logger.info(body)
-
-    return HttpResponse(status=200)
+    return webhook.handle_webhook_ping(request)

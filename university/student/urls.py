@@ -14,17 +14,28 @@ urlpatterns = [
     path(
         "presentation_request/", views.presentation_request, name="presentation-request"
     ),
+    path(
+        "topic/<str:topic>/",
+        views.handle_topic,
+        name="handle-topic",
+    ),
     # Webhook endpoints
-    path("topic/connections/", views.webhook_connections, name="webhook_connections"),
-    path(
-        "topic/issue_credential/",
-        views.webhook_issue_credential,
-        name="webhook_issue_credential",
-    ),
-    path(
-        "topic/present_proof/",
-        views.webhook_present_proof,
-        name="webhook_present_proof",
-    ),
-    path("topic/ping/", views.webhook_ping, name="webhook_ping"),
+    #     path("topic/connections/", views.webhook_connections, name="webhook_connections"),
+    #     path(
+    #         "topic/issue_credential_v2_0/",
+    #         views.webhook_issue_credential,
+    #         name="webhook_issue_credential",
+    #     ),
+    #     path(
+    #         "topic/present_proof_v2_0/",
+    #         views.webhook_present_proof,
+    #         name="webhook_present_proof",
+    #     ),
+    #     path(
+    #         "topic/endorse_transaction/",
+    #         views.webhook_endorse_transaction,
+    #         name="webhook_endorse_transaction",
+    #     ),
+    #     path("topic/ping/", views.webhook_ping, name="webhook_ping"),
+    #
 ]
